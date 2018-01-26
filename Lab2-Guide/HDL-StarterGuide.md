@@ -12,8 +12,7 @@ Similarly, both languages employ hierarchical modular design techniques and synt
 
 The main difference between the two languages is syntax.  The Verilog language was based on [**C**](https://en.wikipedia.org/wiki/C_(programming_language)) whereas VHDL was based on [**Pascal**](https://en.wikipedia.org/wiki/Pascal_(programming_language)) (or [ADA](https://en.wikipedia.org/wiki/Ada_(programming_language))).  The examples in this document highlight the similarities in structure while showing the differences in syntax between the two languages.
 
-The remainder of this document will describe basic [HDL Constructs](#hdl-constructs), with both Verilog and VHDL examples, and provide an [FPGA Component Reference](#fpga-component-reference) for the elements needed for the Lab 2 Project design.
-
+The remainder of this document will describe basic [HDL Constructs](#hdl-constructs), with both Verilog and VHDL examples, and provide an [FPGA Component Reference](#fpga-component-reference) for the elements needed for this and later Lab Project designs.
 
 ---
 
@@ -67,7 +66,13 @@ begin
 end rtl;
 ```
 
-In both example implementations, the **Port** definition specifies three input signals (a, b, and c) and one output signal (z).  The VHDL module requires more boilerplate syntax but the two are very similar in the end.
+### Module Ports
+
+Every module has a well defined list of input and output signals.  This simplifies the design, testing, and reuse of modules.  Port signals can be input, output, or bidirectional (although bidirectional signals are normally only used on the top-level module).  Ports can be either single-wire or multi-wire bus signals (VHDL allows additional types to be used). 
+
+Port definitions are useful in both top-down and bottom-up development.  A top-level design can define black-box modules whose functionality will be filled in later, or for a bottom-up design, the lowest level modules can be defined first then build up to create the larger system.  In either methodology, unit-testing can be done on a per module basis to help ensure the overall design quality.
+
+In both example implementations, the **Port** definition specifies three input signals (a, b, and c) and one output signal (z).  The VHDL module requires more boilerplate syntax but the two modules are functionally equivalent and the underlying structure of the port definition is similar.
 
 **NOTE:** Verilog allows some flexibility in the way modules are defined and many Verilog reference books do not structure the module definition as shown here.  This is unfortunate because their examples are usually less straight-forward and make seeing the similarity between the two languages harder.
 
@@ -75,9 +80,13 @@ In both example implementations, the **Port** definition specifies three input s
 
 After defining a module, the next step is to actually use it.  Defining an instance of a module is called an **instantiation**.  Modules can be instantiated as many times as needed, but each instance requires a unique name.
 
-The following examples shows how to instantiate the previously defined modules with the instance name `example_inst` inside another module called `container_module`.
+The following examples show how to instantiate the previously defined modules with the instance name `example_inst` inside another module called `container_module`.
 
-Module instantiations must always be named so the synthesizer can differentiate between different instances of the same module.
+Module instantiations must always be named so the synthesizer can differentiate between various instances of the same module.
+
+This module structure will be used in the following examples showing the implementation differences between Verilog and VHDL.
+
+![Module Example](images/module_example.png)
 
 **Verilog:**
 
@@ -98,18 +107,21 @@ module container_module
 	output z_out
 );
 
-	wire b_in = 1'b0;
+	wire b = 1'b0;
 	
 	example_module example_inst
 	(
 		.a( a_in ),
-		.b( b_in ),
-		.c( a_in & b_in ),
+		.b( b ),
+		.c( a_in & b ),
 		.z( z_out )
 	);
 	
 endmodule
 ```
+
+:information_source: The `input` and `output` descriptors used in the example infer the _wire_ type so `wire` does not need to be added.  If a _reg_ type were to be used, then the `reg` keyword must be appended to the port direction, like so `input reg a_in,`.
+
 
 **VHDL:**
 
@@ -136,7 +148,7 @@ end entity;
 
 architecture structural of container_module is
 
-	signal b_in : std_logic := '0';
+	signal b : std_logic := '0';
 	signal c_temp : std_logic;
 
 	component example_module
@@ -149,13 +161,13 @@ architecture structural of container_module is
 
 begin
 
-	c_temp <= a_in and b_in;
+	c_temp <= a_in and b;
 	
 	example_inst : example_module 
 	port map
 	(
 		a => a_in,
-		b => b_in,
+		b => b,
 		c => c_temp,
 		z => z_out
 	);
@@ -163,7 +175,7 @@ begin
 end structural;
 ```
 
-**NOTE:** You'll notice how much more VHDL text is required to implement the same logic as the Verilog implementation.  This is the primary complaint when comparing VHDL vs Verilog.
+**NOTE:** You'll notice how much more VHDL text is required to implement the same logic as the Verilog implementation.  This is the primary complaint when comparing VHDL to Verilog.
 
 **NOTE:** Mixed-language designs are possible and are supported by the version of Quartus and ModelSim used for the class.
 
@@ -809,9 +821,21 @@ begin
 end
 ```
 
+**VHDL:**
+
+```vhdl
+with mux_sel select
+	mux <= a when x'0',
+	       b when x'1',
+	       c when x'2',
+	       d when x'3';
+```
+
 ### Registered Multiplexer
 
-Here's the same multiplexer but with a registered output.  
+Here's the same multiplexer but with a registered output.  The mux register is updated on every rising-edge of the CLK clock signal.
+
+**Verilog:**
 
 ```verilog
 wire [1:0] mux_sel;
@@ -828,9 +852,26 @@ begin
 end
 ```
 
-Notice that in both examples the variable `mux` is type reg since it is being assigning in a process block even though the first example does not actually create a register.
+**VHDL:**
+
+```vhdl
+mux_proc: process (CLK)
+begin
+	if rising_edge(CLK) then
+		with mux_sel select
+			mux <= a when x'0',
+			       b when x'1',
+			       c when x'2',
+			       d when x'3';
+	endif;
+end process;
+```
+
+Notice that in both Verilog examples the variable `mux` is type reg since it is being assigning in a process block even though the first example does not actually create a register.
 
 A two input multiplexer can also be created with an if-then-else structure.  Many times this structure describes logic more succinctly.
+
+**Verilog:**
 
 ```verilog
 always @(posedge CLK)
@@ -846,8 +887,14 @@ end
 
 ```vhdl
 mux_proc : process (CLK)
-
-
+begin
+	if rising_edge(CLK) then
+		if mux_sel = '1' then
+			mux <= a;
+		else
+			mux <= b;
+		endif;
+	endif;
 end process;
 ```
 
@@ -858,6 +905,8 @@ Priority encoders are used to select an output value based on a number of discre
 **NOTE:** Usually, the multiplexer structure results in more optimal logic so take time to consider whether using a multiplexer will better suite your logic needs first before using priority encoder.
 
 In the following example, a STATUS output is assigned based on two different EVENT signals.  EVENT\_A has priority over EVENT\_B so if they are both asserted simultaneously then EVENT\_A takes precedence and the output will be 2'h1.
+
+**Verilog:**
 
 ```Verilog
 input EVENT_A;
@@ -1138,13 +1187,21 @@ For example, a 75% duty cycle on the 1kHz PWM will result in the signal being lo
 
 ![PWM Waveform](images/PWM_Waveform.png)
 
-An efficient PWM implementation in FPGA logic uses two rollover counters.  One counter will set the PWM interval time for the base frequency, and the other counter sets the percentage of on-time during the interval period.
+An efficient PWM implementation in FPGA logic uses two rollover counters.  One counter will set the PWM Interval Time which determines the base frequency, and the other counter sets the percentage of on-time during the interval period, which is known as the Duty Cycle.  The following diagram shows the hardware structure for the PWM design.
 
-The **PWM Interval** counter simply generates a single clock tick at the end of every interval period.  This clock tick resets the **PWM Duty Cycle** counter.
+![PWM Diagram](images/pwm_logic.png)
 
-The **PWM Duty Cycle** rollover counter will be loaded with the amount of off-time for the cycle.  When the counter rolls over, the upper bit flips from 0 to 1 and remains high until reset by the **PWM Interval** timer. The trick of the design is that the upper bit of the **PWM Duty Cycle** counter mimics the exact output required for the PWM so it can be output without any other fuss.
+The **PWM Interval Counter** simply generates a single clock wide pulse (tick at the end of every interval period.  This clock tick resets both the **PWM Interval Counter** and the **PWM Duty Cycle** counter.  The clock tick (_pwm\_inv\_tick_) coincides exactly with the upper most bit (MSB) of the rollover counter so that bit will be used directly as the clock tick signal.  The _PWM\_INV\_LOADVAL_ value sets the clock tick rate.
 
-The following example implements a static 75% duty cycle, 1kHz base frequency PWM from a 50 MHz system clock.
+The **PWM Duty Cycle Counter** mechanism is slightly less obvious but uses the same rollover counter trick.  On reset, the counter is loaded with the amount of off-time for the cycle.  As the counter starts counting up, the MSB is 0.  When the counter hits the rollover point the MSB switches from 0 to 1, then continues to be 1 as the counter increments until reset by the clock tick from the interval counter.  The pattern of the MSB bit matches exactly what we want as the output from the PWM so this signal is buffered by the output register and used as the PWM_OUT signal.
+
+So with two counters you can make a very powerful control signal that can be used to dim an LED, rotate a servo motor, or create sound on a buzzer.  More ideas [here](https://learn.sparkfun.com/tutorials/pulse-width-modulation).
+
+### PWM Examples
+
+The following example implements a static 75% duty cycle, 1kHz base frequency PWM from a 50 MHz system clock.  You'll want to refer to this example for the Lab 2 assignment.
+
+:information_source: Note the heavy use of parameters to make setting the input Clock Rate, PWM Frequency and PWM Duty Cycle much easier.  All of the register size and starting count values are calculated automatically.
 
 **Verilog:**
 
@@ -1202,6 +1259,8 @@ end
 
 **VHDL:**
 
+NOTE: This is an incomplete example but would mimic the Verilog version in function.
+
 ```vhdl
 
 signal pwm_inv_count_reg : std_logic_vector(15 downto 0);
@@ -1225,7 +1284,6 @@ begin
 		PWM_OUT <= pdc_count_reg(PWM_REG_WIDTH);
 	end if;
 end process;
-
 ```
 
 ## Additional References
