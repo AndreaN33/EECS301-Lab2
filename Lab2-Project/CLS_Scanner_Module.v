@@ -158,6 +158,21 @@ module CLS_Scanner_Module
 	//
 	
 	//!! Add CLS_LED_Output_Multiplexer instantiation here !!
+	wire [9:0] pwm_out;
+	
+	CLS_LED_Output_Multiplexer led_output_multiplexer
+	(
+		//input signals
+		.PWM_CHANNEL_SIGS(pwm_channel_sigs),
+		.PWM_TIMER_TICK(pwm_timer_tick),
+		.SRT_TICK(srt_tick),
+		.CLK(CLK),
+		
+		//output signals
+		.LEDR(LEDR)
+	);
+	
+	
 	
 	
 endmodule

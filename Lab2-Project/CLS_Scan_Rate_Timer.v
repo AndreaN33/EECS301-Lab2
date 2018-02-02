@@ -75,6 +75,34 @@ module CLS_Scan_Rate_Timer
 	
 	
 	//!! Add Implementation Here !!
+	
+	//4-Input Multiplexer
+	always @*
+	begin
+	case(RATE_SELECT)
+				2'h0 : srt_cnt_loadval <= SRT_SLOWER_LOADVAL;
+				2'h1 : srt_cnt_loadval <= SRT_SLOW_LOADVAL;
+				2'h2 : srt_cnt_loadval <= SRT_FAST_LOADVAL;
+				2'h3 : srt_cnt_loadval <= SRT_FASTER_LOADVAL;
+	endcase		
+	end
+	
+	//rollover counter
+	//reg srt_count_reg;
+	assign srt_cnt_tick = srt_cnt_reg[SRT_REG_WIDTH];
+	
+	always @(posedge CLK)
+	begin
+		if (srt_cnt_tick)
+			srt_cnt_reg <= srt_cnt_loadval;
+		else
+			srt_cnt_reg <= srt_cnt_reg + 1'b1;
+	end
+	
+	//register
+	always @(posedge CLK) //maybe not clock
+	begin
+			SRT_TICK <= srt_cnt_tick;
+	end
 
-
-endmodule
+endmodule 
